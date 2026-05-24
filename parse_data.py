@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
+from zoneinfo import ZoneInfo
 import json
 import os
 import re
@@ -104,6 +105,93 @@ def get_sp500() -> tuple[dict[str, str], dict[str, str]]:
     cik2symbol = dict(zip(padded_ciks, df['Symbol']))
 
     return symbol2cik, cik2symbol
+
+def get_latest_report_date_with_timing(symbol: str) -> tuple[Optional[date], Optional[date], Optional[str]]:
+    """
+    Retrieves confirmed reporting dates from Yahoo Finance and the SEC, alongside 
+    a precise classification of whether the filing dropped before or after market hours.
+    
+    Args:
+        symbol (str): The stock ticker symbol.
+        
+    Returns:
+        tuple: A tuple containing:
+            - end_date (date | None): Latest historical price date from yfinance.
+            - report_date (date | None): SEC filing date.
+            - release_timing (str | None): "Before Open", "During Hours", "After Close", or None.
+    """
+    (symbol2cik, _) = get_sp500()
+    cik = symbol2cik.get(symbol)
+    if not cik:
+        return None, None, None
+
+    # Fetch yfinance date boundaries
+    end_date = None
+    try:
+        yf_ticker = yf.Ticker(symbol)
+        history_df = yf_ticker.get_earnings_history()
+        if history_df is not None and not history_df.empty:
+            past_earnings = history_df.index[history_df.index.date <= date.today()]
+            if not past_earnings.empty:
+                end_date = past_earnings.max().date()
+    except Exception as e:
+        print(f"Error fetching Yahoo Finance history: {e}")
+
+    # Fetch SEC Submissions containing timestamps
+    padded_cik = str(cik).zfill(10)
+    headers = {"User-Agent": f"EquityAnalyzer {EMAIL}"}
+    url = f"https://data.sec.gov/submissions/CIK{padded_cik}.json"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            return end_date, None, None
+            
+        data = response.json()
+        recent = data.get('filings', {}).get('recent', {})
+        
+        forms = recent.get('form', [])
+        items = recent.get('items', [])
+        filing_dates = recent.get('filingDate', [])
+        acceptance_times = recent.get('acceptanceDateTime', []) # Contains exact ISO timestamp string
+        
+        target_index = -1
+        for i in range(len(forms)):
+            if forms[i] == "8-K" and "2.02" in str(items[i]):
+                target_index = i
+                break
+                
+        if target_index == -1:
+            return end_date, None, None
+
+        report_date = date.fromisoformat(filing_dates[target_index])
+        raw_timestamp = acceptance_times[target_index] # Format example: "2026-04-28T16:05:12.000Z"
+        
+        # Parse UTC timestamp and translate to Eastern Time (Wall Street Time)
+        # Note: 'Z' suffix denotes UTC time. We strip/parse it dynamically
+        clean_ts = raw_timestamp.replace('Z', '+00:00')
+        utc_dt = datetime.fromisoformat(clean_ts)
+        est_dt = utc_dt.astimezone(ZoneInfo("America/New_York"))
+        
+        # Define market hour thresholds for that calendar day
+        market_open = est_dt.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close = est_dt.replace(hour=16, minute=0, second=0, microsecond=0)
+        
+        print(est_dt)
+
+        # Classify timing window
+        if est_dt < market_open:
+            release_timing = "Before Open"
+        elif est_dt > market_close:
+            release_timing = "After Close"
+        else:
+            release_timing = "During Hours"
+            
+        return end_date, report_date, release_timing
+
+    except Exception as e:
+        print(f"Pipeline failure: {e}")
+        return end_date, None, None
 
 def get_eps_revenue_estimates(symbol: str, source: str = "YahooFinance") -> tuple[dict[str, Optional[float]], dict[str, Optional[float]]]:
     """
@@ -378,6 +466,114 @@ def get_eps(symbol: str, source: str = "YahooFinance", sue_timeframe: int = 8) -
 
     return result_dict
 
+def get_stock_market_reaction(symbol: str) -> Optional[dict[str, Optional[float]]]:
+    """
+    Calculates stock price reaction and cumulative abnormal returns (CAR) 
+    relative to the S&P 500 by shifting anchor dates based on the precise 
+    intraday execution timing of the SEC 8-K release.
+    
+    Args:
+        symbol (str): The stock ticker symbol.
+        
+    Returns:
+        dict | None: A dictionary containing market reaction metrics, or None if 
+        historical price windows cannot be dynamically calculated.
+            - "close_to_open_change" (float)
+            - "open_to_close_change" (float)
+            - "close_to_open_car" (float)
+            - "open_to_close_car" (float)
+    """
+    # Fetch dates along with exact intraday timing window metrics
+    _, report_date, release_timing = get_latest_report_date_with_timing(symbol)
+    
+    if not report_date or not release_timing:
+        print(f"Cannot calculate market reaction: Missing execution dates or timing parameters for {symbol}")
+        return None
+
+    # Fetch a generic padded 14-day tracking matrix around the filing event 
+    start_fetch = report_date - timedelta(days=7)
+    end_fetch = report_date + timedelta(days=7)
+
+    try:
+        stock_ticker = yf.Ticker(symbol)
+        spy_ticker = yf.Ticker("^GSPC")
+        
+        stock_df = stock_ticker.history(start=start_fetch, end=end_fetch)
+        spy_df = spy_ticker.history(start=start_fetch, end=end_fetch)
+        
+        if stock_df.empty or spy_df.empty:
+            print(f"Missing price historical matrices for {symbol} or ^GSPC.")
+            return None
+
+        # Generate structural trading dates aligned to reality
+        all_trading_days = stock_df.index.date.tolist()
+        
+        # Determine the exact row index corresponding to the calendar report date
+        # If the report date lands on a weekend, find the next available active trading day
+        if report_date in all_trading_days:
+            t_report_idx = all_trading_days.index(report_date)
+        else:
+            trading_days_after = [d for d in all_trading_days if d > report_date]
+            if not trading_days_after:
+                print("Insufficient trailing market boundaries.")
+                return None
+            t_report_idx = all_trading_days.index(trading_days_after[0])
+
+        # Apply explicit structural shifts based on the timing payload
+        if release_timing == "Before Open":
+            # Baseline close is the night before. Open/Close reaction happens entirely on report day.
+            idx_pre_close = t_report_idx - 1
+            idx_post_open_close = t_report_idx
+            
+        elif release_timing == "After Close":
+            # Baseline close is today's close. Open/Close reaction happens tomorrow morning.
+            idx_pre_close = t_report_idx
+            idx_post_open_close = t_report_idx + 1
+            
+        else: # "During Hours"
+            # Report dropped midday. Baseline close must step back to the previous day's settlement.
+            # Intraday velocity spans across the active day.
+            idx_pre_close = t_report_idx - 1
+            idx_post_open_close = t_report_idx
+
+        # Prevent out-of-bounds structural lookup crashes
+        if idx_pre_close < 0 or idx_post_open_close >= len(all_trading_days):
+            print("Event boundary conditions exceed historical index capabilities.")
+            return None
+
+        # Resolve explicit timestamps 
+        t_minus_day = stock_df.index[idx_pre_close]
+        t_zero_day = stock_df.index[idx_post_open_close]
+
+        # Extract stock pricing points
+        stock_last_close = stock_df.loc[t_minus_day, "Close"]
+        stock_first_open = stock_df.loc[t_zero_day, "Open"]
+        stock_first_close = stock_df.loc[t_zero_day, "Close"]
+        
+        spy_last_close = spy_df.loc[t_minus_day, "Close"]
+        spy_first_open = spy_df.loc[t_zero_day, "Open"]
+        spy_first_close = spy_df.loc[t_zero_day, "Close"]
+        
+        close_to_open_stock = (stock_first_open - stock_last_close) / stock_last_close
+        open_to_close_stock = (stock_first_close - stock_first_open) / stock_first_open
+        
+        close_to_open_spy = (spy_first_open - spy_last_close) / spy_last_close
+        open_to_close_spy = (spy_first_close - spy_first_open) / spy_first_open
+        
+        close_to_open_car = close_to_open_stock - close_to_open_spy
+        open_to_close_car = open_to_close_stock - open_to_close_spy
+        
+        return {
+            "close_to_open_change": float(close_to_open_stock * 100),
+            "open_to_close_change": float(open_to_close_stock * 100),
+            "close_to_open_car": float(close_to_open_car * 100),
+            "open_to_close_car": float(open_to_close_car * 100)
+        }
+
+    except Exception as e:
+        print(f"Failed to isolate market pricing reaction sequences: {e}")
+        return None
+
 # Pydantic Schemas for Structured JSON output
 class GuidanceMetrics(BaseModel):
     revenue: Optional[float] = Field(default=None, description="Actual monetary amount for revenue.")
@@ -395,7 +591,7 @@ class ForwardGuidance(BaseModel):
     current_year: GuidanceMetrics = Field(description="Guidance specifically for the full current fiscal year. Leave nested fields null if not provided.")
 
 
-def extract_guidance_with_gemini(markdown_text: str, cik: str, safe_filename: str, parse: str = "Auto") -> Optional[dict]:
+def extract_guidance_with_gemini(markdown_text: str, cik: str, safe_filename: str, report_date: date, parse: str = "Auto", n_retry: int = 3) -> Optional[dict]:
     """
     Extracts forward guidance from earnings text using the Gemini API and saves it to a JSON cache.
     
@@ -403,7 +599,9 @@ def extract_guidance_with_gemini(markdown_text: str, cik: str, safe_filename: st
         markdown_text (str): The markdown text of the 8-K press release.
         cik (str): The central index key of the company.
         safe_filename (str): A secure filename used as the key in the JSON cache.
-        parse (str): Parsing mode - "None" (skip API), "Auto" (use API if not cached), or "Force" (overwrite cache).
+        report_date (date): The report date of the 8-K press release.
+        parse (str): Parsing mode - "None" (skip API), "Auto" (default; use API if not cached), or "Force" (overwrite cache).
+        n_retry (int): Number of retries in case of errors in extraction, default = 3
         
     Returns:
         dict: A dictionary containing the extracted forward guidance, or None if extraction fails/is skipped.
@@ -448,42 +646,49 @@ def extract_guidance_with_gemini(markdown_text: str, cik: str, safe_filename: st
     3. DO NOT perform any calculations or assumptions. If the data is not there, leave it as null.
     4. If a single number is provided, fill in the base field and leave the range fields empty.
     5. If a range is provided, fill in the min/max fields and leave the base field empty.
+    6. For revenue value, the unit is dollars, so convert the million/billion back to dollars by adding trailing zeros where appropriate
     
     Press Release Markdown:
     {markdown_text}
     """
     
-    try:
-        response = client.models.generate_content(
-            model="gemma-4-26b-a4b-it",
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": ForwardGuidance,
-            }
-        )
-        
-        guidance_obj = ForwardGuidance.model_validate_json(response.text)
-        guidance_data = guidance_obj.model_dump()
-        
-        guidance_data["CIK"] = cik
-        guidance_data["safe_filename"] = safe_filename
-        guidance_data["source"] = "Gemini"
-        
-        cache_data[safe_filename] = guidance_data
-        
-        os.makedirs("data", exist_ok=True)
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(cache_data, f, indent=4)
+    for attempt in range(n_retry + 1):
+        try:
+            response = client.models.generate_content(
+                model="gemma-4-26b-a4b-it",
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": ForwardGuidance,
+                }
+            )
             
-        print(f"Extraction successfully saved to {cache_file}")
-        return guidance_data
-        
-    except Exception as e:
-        print(f"Gemini API Error during extraction or schema validation: {e}")
-        return None
+            guidance_obj = ForwardGuidance.model_validate_json(response.text)
+            guidance_data = guidance_obj.model_dump()
+            
+            guidance_data["CIK"] = cik
+            guidance_data["safe_filename"] = safe_filename
+            guidance_data["source"] = "Gemini"
+            guidance_data["report_date"] = report_date.strftime("%Y-%m-%d")
+            
+            cache_data[safe_filename] = guidance_data
+            
+            os.makedirs("data", exist_ok=True)
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, indent=4)
+                
+            print(f"Extraction successfully saved to {cache_file}")
+            return guidance_data
+            
+        except Exception as e:
+            print(f"Gemini API Error (Attempt {attempt + 1}/{n_retry + 1}): {e}")
+            if attempt < n_retry:
+                print("Retrying...")
+            else:
+                print("Max retries reached. Failing.")
+                return None
 
-def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, str, None]:
+def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> dict[str, Optional[Union[str, dict]]]:
     """
     Downloads the primary 8-K document, validates the filing date against the active earnings season, 
     locates Exhibit 99.1, saves it as Markdown, and conditionally extracts forward guidance via Gemini.
@@ -493,8 +698,8 @@ def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, st
         parse (str): Parsing mode for Gemini extraction ("None", "Auto", "Force"). Defaults to "Auto".
         
     Returns:
-        dict | str | None: Returns a dictionary of guidance if extracted, the raw markdown string if parse="None", 
-        or None if the document couldn't be retrieved or wasn't within the active season.
+        dict: A dictionary containing "markdown" and "guidance" keys, 
+        where the values could be None if the document couldn't be retrieved or wasn't within the active season.
     """
     padded_cik = str(cik).zfill(10)
     stripped_cik = str(cik).lstrip('0')
@@ -506,7 +711,10 @@ def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, st
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         print(f"Error fetching submissions: {response.status_code}")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
         
     data = response.json()
     recent_filings = data.get('filings', {}).get('recent', {})
@@ -525,7 +733,10 @@ def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, st
             
     if target_index == -1:
         print("No recent 8-K with Item 2.02 (Earnings Release) found.")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
 
     # --- Date Window Validation ---
     report_date = date.fromisoformat(filing_dates[target_index])
@@ -538,27 +749,30 @@ def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, st
     
     if not (report_window_start <= report_date <= report_window_end):
         print(f"Skipped: Report filing date ({report_date}) falls outside the active earnings season window.")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
         
     accession_no_dashes = accessions[target_index].replace('-', '')
     primary_doc_filename = primary_docs[target_index]
     
-    # Set the base directory URL for this specific SEC filing
     base_archive_url = f"https://www.sec.gov/Archives/edgar/data/{stripped_cik}/{accession_no_dashes}/"
     primary_url = f"{base_archive_url}{primary_doc_filename}"
     
-    # Fetch Primary Document HTML and locate Exhibit 99.1
     print(f"Parsing primary document: {primary_url}")
     primary_response = requests.get(primary_url, headers=headers)
     
     if primary_response.status_code != 200:
         print("Failed to download the primary 8-K document.")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
         
     soup = BeautifulSoup(primary_response.content, 'html.parser')
     exhibit_href = None
     
-    # Find all text nodes that contain "99.1"
     for element in soup.find_all(string=re.compile(r'99\.1')):
         parent_a = element.find_parent('a')
         if parent_a and parent_a.has_attr('href'):
@@ -574,31 +788,219 @@ def get_latest_8k_press_release(cik: str, parse: str = "Auto") -> Union[dict, st
                 
     if not exhibit_href:
         print("Could not find a valid hyperlink for Exhibit 99.1 in the document.")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
         
-    # Fetch and Tidy the Exhibit 99.1 HTML
     exhibit_url = f"{base_archive_url}{exhibit_href}"
     print(f"Downloading Exhibit 99.1 from: {exhibit_url}")
     
     exhibit_response = requests.get(exhibit_url, headers=headers)
     if exhibit_response.status_code != 200:
         print("Failed to download Exhibit 99.1.")
-        return None
+        return {
+            "markdown": None,
+            "guidance": None
+        }
         
     markdown_text = md(exhibit_response.text)
     
-    # Ensure the data directory exists and save the file safely
     os.makedirs("data", exist_ok=True)
-    safe_filename = str(padded_cik) + exhibit_href.split('/')[-1]
+    safe_filename = f"{str(padded_cik)}_{report_date.strftime('%Y-%m-%d')}_{exhibit_href.split('/')[-1]}"
     
     with open(f"data/{safe_filename}.md", "w", encoding="utf-8") as f:
         f.write(markdown_text)
 
     # Trigger Gemini extraction process based on parse variable
+    guidance_data = None
     if parse in ["Auto", "Force"]:
-        return extract_guidance_with_gemini(markdown_text, cik, safe_filename, parse)
+        guidance_data = extract_guidance_with_gemini(markdown_text, cik, safe_filename, report_date, parse)
     
-    return markdown_text
+    return {
+        "markdown": markdown_text,
+        "guidance": guidance_data
+    }
+
+def compare_forward_guidance(symbol: str) -> dict[str, dict]:
+    """
+    Compares the company's forward guidance (from 8-K extraction) against the market 
+    consensus (from Yahoo Finance / Alpha Vantage) for both Revenue and EPS.
+    
+    If the company provides revenue guidance as a percentage, it calculates the implied 
+    absolute revenue based on historical performance (YoY) for accurate comparison.
+    
+    Args:
+        symbol (str): The stock ticker symbol.
+        
+    Returns:
+        dict: A nested dictionary structured by 'quarter' and 'year', containing 
+        'Revenue' and 'EPS' comparisons. Inner keys only exist if guidance was provided.
+    """
+    result = {
+        "quarter": {},
+        "year": {}
+    }
+    
+    # Map Symbol to CIK
+    symbol2cik, _ = get_sp500()
+    cik = symbol2cik.get(symbol)
+    if not cik:
+        print(f"CIK not found for {symbol}.")
+        return result
+
+    padded_cik = str(cik).zfill(10)
+        
+    # Get Active Season and SEC Report Date
+    _, report_date, _ = get_latest_report_date_with_timing(symbol)
+    if not report_date:
+        print(f"Could not resolve a valid recent report date for {symbol}.")
+        return result
+
+    # Retrieve Extraction Data (Cache check first, then API fallback)
+    guidance_data = None
+    cache_file = "data/extractions.json"
+    report_date_str = report_date.strftime("%Y-%m-%d")
+    
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            
+            # Search cache for matching CIK and Report Date
+            for key, entry in cache.items():
+                if entry.get("CIK") == padded_cik and entry.get("report_date") == report_date_str:
+                    guidance_data = entry
+                    print("Loaded guidance from extractions.json cache.")
+                    break
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback to fetching and parsing if not in cache
+    if not guidance_data:
+        print("Guidance not found in cache for current season. Triggering parser...")
+        pr_data = get_latest_8k_press_release(cik, parse="Auto")
+        if pr_data and pr_data.get("guidance"):
+            guidance_data = pr_data["guidance"]
+            
+    if not guidance_data:
+        print("No guidance data extracted or found.")
+        return result
+
+    # Fetch Market Consensus
+    eps_est, rev_est = get_eps_revenue_estimates(symbol)
+    yf_ticker = yf.Ticker(symbol)
+
+    # Helper function to extract single value or compute midpoint of a range
+    def get_val_or_midpoint(metrics: dict, base_key: str) -> Optional[float]:
+        val = metrics.get(base_key)
+        if val is not None:
+            return float(val)
+            
+        min_val = metrics.get(f"{base_key}_range_min")
+        max_val = metrics.get(f"{base_key}_range_max")
+        
+        if min_val is not None and max_val is not None:
+            return (float(min_val) + float(max_val)) / 2.0
+        elif min_val is not None: 
+            return float(min_val)
+        elif max_val is not None: 
+            return float(max_val)
+            
+        return None
+
+    # Process Next Quarter Guidance
+    q_guidance = guidance_data.get("next_quarter", {})
+    if any(v is not None for v in q_guidance.values()):
+        
+        # Quarter Revenue
+        q_rev_guidance = get_val_or_midpoint(q_guidance, "revenue")
+        
+        # If absolute revenue isn't provided, try deriving it from percentage guidance
+        if q_rev_guidance is None:
+            q_rev_pct = get_val_or_midpoint(q_guidance, "revenue_percent")
+            if q_rev_pct is not None:
+                try:
+                    q_inc = yf_ticker.get_income_stmt(freq="quarterly")
+                    # Index 3 typically corresponds to the reported quarter from exactly 1 year ago
+                    # relative to the *upcoming* (next) quarter
+                    if q_inc.shape[1] > 3:
+                        last_year_q_rev = float(q_inc.iloc[:, 3].get("TotalRevenue", 0))
+                        q_rev_guidance = last_year_q_rev * (1 + (q_rev_pct / 100.0))
+                except Exception:
+                    pass
+                    
+        if q_rev_guidance is not None:
+            q_rev_cons = rev_est.get("next_quarter")
+            if q_rev_cons:
+                surprise = q_rev_guidance - q_rev_cons
+                result["quarter"]["Revenue"] = {
+                    "guidance": q_rev_guidance,
+                    "consensus": q_rev_cons,
+                    "surprise": surprise,
+                    "surprise_percent": (surprise / q_rev_cons) * 100
+                }
+                
+        # Quarter EPS
+        q_eps_guidance = get_val_or_midpoint(q_guidance, "eps")
+        if q_eps_guidance is not None:
+            q_eps_cons = eps_est.get("next_quarter")
+            if q_eps_cons is not None:
+                surprise = q_eps_guidance - q_eps_cons
+                # Use absolute consensus in denominator to preserve correct positive/negative growth logic
+                denom = abs(q_eps_cons) if q_eps_cons != 0 else 1 
+                result["quarter"]["EPS"] = {
+                    "guidance": q_eps_guidance,
+                    "consensus": q_eps_cons,
+                    "surprise": surprise,
+                    "surprise_percent": (surprise / denom) * 100
+                }
+
+    # Process Current Year Guidance
+    y_guidance = guidance_data.get("current_year", {})
+    if any(v is not None for v in y_guidance.values()):
+        
+        # Year Revenue
+        y_rev_guidance = get_val_or_midpoint(y_guidance, "revenue")
+        
+        if y_rev_guidance is None:
+            y_rev_pct = get_val_or_midpoint(y_guidance, "revenue_percent")
+            if y_rev_pct is not None:
+                try:
+                    y_inc = yf_ticker.get_income_stmt(freq="yearly")
+                    # Index 0 is the most recently completed fiscal year
+                    if y_inc.shape[1] > 0:
+                        last_year_rev = float(y_inc.iloc[:, 0].get("TotalRevenue", 0))
+                        y_rev_guidance = last_year_rev * (1 + (y_rev_pct / 100.0))
+                except Exception:
+                    pass
+
+        if y_rev_guidance is not None:
+            y_rev_cons = rev_est.get("next_year")
+            if y_rev_cons:
+                surprise = y_rev_guidance - y_rev_cons
+                result["year"]["Revenue"] = {
+                    "guidance": y_rev_guidance,
+                    "consensus": y_rev_cons,
+                    "surprise": surprise,
+                    "surprise_percent": (surprise / y_rev_cons) * 100
+                }
+                
+        # Year EPS
+        y_eps_guidance = get_val_or_midpoint(y_guidance, "eps")
+        if y_eps_guidance is not None:
+            y_eps_cons = eps_est.get("next_year")
+            if y_eps_cons is not None:
+                surprise = y_eps_guidance - y_eps_cons
+                denom = abs(y_eps_cons) if y_eps_cons != 0 else 1
+                result["year"]["EPS"] = {
+                    "guidance": y_eps_guidance,
+                    "consensus": y_eps_cons,
+                    "surprise": surprise,
+                    "surprise_percent": (surprise / denom) * 100
+                }
+
+    return result
 
 if __name__ == "__main__":
     symbol = input("Enter symbol:")
@@ -626,8 +1028,16 @@ if __name__ == "__main__":
     print(f"Surprise: {eps_dict['surprise']} ( {eps_dict['surprise_percent']}% )")
     print(f"SUE: {eps_dict['sue']}")
     print("---Press Release---")
-    pr_text = get_latest_8k_press_release("0001045810")
+    (symbol2cik, _) = get_sp500()
+    pr_text = get_latest_8k_press_release(symbol2cik[symbol])
     print(pr_text)
-    get_sp500()
+    print(compare_forward_guidance(symbol))
+    print("---Stock Market Reaction---")
+    print(get_latest_report_date_with_timing(symbol))
+    stock = get_stock_market_reaction(symbol)
+    print(f"Close-to-open change: {stock['close_to_open_change']}%")
+    print(f"Open-to-close change: {stock['open_to_close_change']}%")
+    print(f"Close-to-open CAR: {stock['close_to_open_car']}%")
+    print(f"Open-to-close CAR: {stock['open_to_close_car']}%")
     
 
