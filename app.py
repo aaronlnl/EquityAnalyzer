@@ -3,8 +3,16 @@ import parse_data
 
 app = Flask(__name__)
 
-# Simple in-memory cache to prevent re-fetching data on every page reload
 data_cache = []
+
+def safe_float(val, default=0.0):
+    """Safely converts potential None/null or corrupted strings to clean numeric values."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
 
 def fetch_screener_data():
     global data_cache
@@ -13,43 +21,41 @@ def fetch_screener_data():
 
     symbol2cik, _ = parse_data.get_sp500()
     
-    # ---------------------------------------------------------
-    # CURRENT: Fetching only 10 stocks for prototype speed
-    # ---------------------------------------------------------
+    # CURRENT: Prototype layout bounded to 10 stocks
     symbols_to_fetch = ["NVDA", "MSFT", "AAPL", "AMZN", "META", "AVGO", "GOOGL", "GOOG", "BRK-B", "TSLA"]
     
-    # ---------------------------------------------------------
-    # PRODUCTION: Uncomment the line below to run all 500+ stocks
-    # ---------------------------------------------------------
+    # PRODUCTION: Uncomment to deploy all 500+ stocks
     # symbols_to_fetch = list(symbol2cik.keys())
 
     results = []
     print(f"Fetching data for {len(symbols_to_fetch)} symbols...")
     
     for symbol in symbols_to_fetch:
-        print(f"Processing {symbol}...")
         try:
-            eps_data = parse_data.get_eps(symbol)
-            market_data = parse_data.get_stock_market_reaction(symbol)
-            guidance_data = parse_data.compare_forward_guidance(symbol)
+            eps_data = parse_data.get_eps(symbol) or {}
+            market_data = parse_data.get_stock_market_reaction(symbol) or {}
+            guidance_data = parse_data.compare_forward_guidance(symbol) or {}
             
-            # Safely extract metrics
-            sue = eps_data.get("sue") if eps_data else None
-            car = market_data.get("close_to_open_car") if market_data else None
+            # Extract nested forward tracking values safely
+            qtr_metrics = guidance_data.get("quarter", {})
+            year_metrics = guidance_data.get("year", {})
             
-            # Extract Q1 EPS guidance surprise % if available
-            q_guidance_surprise = None
-            if guidance_data and "quarter" in guidance_data and "EPS" in guidance_data["quarter"]:
-                q_guidance_surprise = guidance_data["quarter"]["EPS"].get("surprise_percent")
+            qtr_eps = qtr_metrics.get("EPS", {}).get("surprise_percent", None)
+            qtr_rev = qtr_metrics.get("Revenue", {}).get("surprise_percent", None)
+            year_eps = year_metrics.get("EPS", {}).get("surprise_percent", None)
+            year_rev = year_metrics.get("Revenue", {}).get("surprise_percent", None)
             
-            # Only include stocks that actually have data
-            if sue is not None and car is not None:
-                results.append({
-                    "symbol": symbol,
-                    "sue": sue,
-                    "car": car,
-                    "guidance_surprise": q_guidance_surprise or 0  # Default to 0 if no guidance
-                })
+            results.append({
+                "symbol": symbol,
+                "sue": safe_float(eps_data.get("sue")),
+                "eps_surprise_percent": safe_float(eps_data.get("surprise_percent")),
+                "close_to_open_car": safe_float(market_data.get("close_to_open_car")),
+                "open_to_close_car": safe_float(market_data.get("open_to_close_car")),
+                "qtr_eps_surprise": safe_float(qtr_eps),
+                "qtr_rev_surprise": safe_float(qtr_rev),
+                "year_eps_surprise": safe_float(year_eps),
+                "year_rev_surprise": safe_float(year_rev)
+            })
         except Exception as e:
             print(f"Error processing {symbol}: {e}")
             
@@ -86,5 +92,4 @@ def api_ticker(symbol):
     })
 
 if __name__ == '__main__':
-    # Debug mode ensures the server restarts if you change code
     app.run(debug=True, port=5000)
