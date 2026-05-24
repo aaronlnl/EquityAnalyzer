@@ -13,7 +13,7 @@ from google import genai
 from markdownify import markdownify as md
 import pandas as pd
 from pydantic import BaseModel, Field
-from typing import Optional, Union
+from typing import Optional, Union, Any
 import yfinance as yf
 
 
@@ -21,6 +21,7 @@ load_dotenv()
 
 ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY")
 EMAIL = os.getenv("EMAIL")
+FINANCIAL_CACHE_FILE = "data/financial_cache.json"
 
 def get_latest_earnings_season() -> dict[str, Union[int, date]]:
     """
@@ -590,7 +591,6 @@ class ForwardGuidance(BaseModel):
     next_quarter: GuidanceMetrics = Field(description="Guidance specifically for the upcoming next quarter. Leave nested fields null if not provided.")
     current_year: GuidanceMetrics = Field(description="Guidance specifically for the full current fiscal year. Leave nested fields null if not provided.")
 
-
 def extract_guidance_with_gemini(markdown_text: str, cik: str, safe_filename: str, report_date: date, parse: str = "Auto", n_retry: int = 3) -> Optional[dict]:
     """
     Extracts forward guidance from earnings text using the Gemini API and saves it to a JSON cache.
@@ -1001,6 +1001,108 @@ def compare_forward_guidance(symbol: str) -> dict[str, dict]:
                 }
 
     return result
+
+def _load_financial_cache() -> dict[str, Any]:
+    """Loads the core financial statistics cache from disk."""
+    if not os.path.exists(FINANCIAL_CACHE_FILE):
+        return {}
+    try:
+        with open(FINANCIAL_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
+
+def _save_financial_cache(cache_data: dict[str, Any]) -> None:
+    """Commits the modified financial cache structure to disk."""
+    os.makedirs(os.path.dirname(FINANCIAL_CACHE_FILE), exist_ok=True)
+    with open(FINANCIAL_CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache_data, f, indent=4)
+
+def get_unified_financial_data(symbol: str) -> dict[str, Any]:
+    """
+    Orchestrates the entire financial metric retrieval process. Caches actual historical
+    data, consensus estimates, stock market responses, and guidance analysis.
+    
+    Data becomes permanently frozen on disk only if the active season's 8-K earnings 
+    release has been officially cataloged by the SEC.
+    
+    Args:
+        symbol (str): The stock ticker symbol.
+        
+    Returns:
+        dict: A comprehensive package of frozen or live real-time financial metrics.
+    """
+    symbol = symbol.upper()
+    current_season = get_latest_earnings_season()
+    season_key = f"{current_season['year']}Q{current_season['quarter']}"
+    cache_lookup_id = f"{symbol}_{season_key}"
+
+    # 1. Check disk cache for existing frozen record
+    cache = _load_financial_cache()
+    if cache_lookup_id in cache:
+        print(f"Cache Hit: Loaded absolute financial data for {cache_lookup_id}")
+        return cache[cache_lookup_id]
+
+    print(f"Cache Miss: Gathering financial structures for {cache_lookup_id}...")
+
+    # 2. Extract foundational dates and timing strings
+    _, report_date, release_timing = get_latest_report_date_with_timing(symbol)
+
+    # 3. Pull live measurements across all financial vectors
+    live_eps_estimates, live_rev_estimates = {}, {}
+    live_actual_eps, live_actual_revenue = {}, {}
+    
+    try:
+        live_eps_estimates, live_rev_estimates = get_eps_revenue_estimates(symbol)
+    except Exception as e:
+        print(f"Non-blocking consensus extraction exception: {e}")
+
+    try:
+        live_actual_eps = get_eps(symbol)
+        live_actual_revenue = get_revenue(symbol)
+    except Exception as e:
+        print(f"Non-blocking historical metric extraction exception: {e}")
+
+    live_reaction = get_stock_market_reaction(symbol)
+    live_guidance_analysis = compare_forward_guidance(symbol)
+
+    # Build the combined dictionary payload
+    combined_payload = {
+        "symbol": symbol,
+        "season": season_key,
+        "report_date": report_date.strftime("%Y-%m-%d") if report_date else None,
+        "release_timing": release_timing,
+        "estimates": {
+            "eps": live_eps_estimates,
+            "revenue": live_rev_estimates
+        },
+        "actuals": {
+            "eps": live_actual_eps,
+            "revenue": live_actual_revenue
+        },
+        "market_reaction": live_reaction,
+        "guidance_comparison": live_guidance_analysis
+    }
+
+    # 4. Strict Event-Driven Boundary Rule Evaluation
+    if not report_date or not release_timing:
+        print(f"Cache Deferred: {symbol} has not filed an 8-K for the active season yet.")
+        return combined_payload
+
+    # Define the acceptable filing window boundary conditions
+    report_window_start = current_season["start"]
+    report_window_end = current_season["end"] + timedelta(days=45)
+
+    if report_window_start <= report_date <= report_window_end:
+        # The earnings release event has occurred. All estimates and reported values
+        # for this season are now historical facts and safe to cache permanently.
+        cache[cache_lookup_id] = combined_payload
+        _save_financial_cache(cache)
+        print(f"Cache Finalized: Frozen absolute financial profile saved for {cache_lookup_id}.")
+    else:
+        print(f"Cache Deferred: Report date ({report_date}) falls outside active seasonal bounds.")
+
+    return combined_payload
 
 if __name__ == "__main__":
     symbol = input("Enter symbol:")

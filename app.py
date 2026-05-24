@@ -32,9 +32,13 @@ def fetch_screener_data():
     
     for symbol in symbols_to_fetch:
         try:
-            eps_data = parse_data.get_eps(symbol) or {}
-            market_data = parse_data.get_stock_market_reaction(symbol) or {}
-            guidance_data = parse_data.compare_forward_guidance(symbol) or {}
+            # 1. Leverage unified, event-driven JSON caching layer
+            financial_data = parse_data.get_unified_financial_data(symbol) or {}
+            
+            # Extract unpacked financial data dictionaries safely from the cache entry
+            eps_data = financial_data.get("actuals", {}).get("eps") or {}
+            market_data = financial_data.get("market_reaction") or {}
+            guidance_data = financial_data.get("guidance_comparison") or {}
             
             # Extract nested forward tracking values safely
             qtr_metrics = guidance_data.get("quarter", {})
@@ -77,18 +81,16 @@ def ticker_profile(symbol):
 
 @app.route('/api/ticker/<symbol>')
 def api_ticker(symbol):
-    eps_data = parse_data.get_eps(symbol)
-    market_data = parse_data.get_stock_market_reaction(symbol)
-    guidance_data = parse_data.compare_forward_guidance(symbol)
-    _, report_date, timing = parse_data.get_latest_report_date_with_timing(symbol)
+    # 2. Leverage the same unified cache mapping layer for single ticker routes
+    financial_data = parse_data.get_unified_financial_data(symbol) or {}
     
     return jsonify({
         "symbol": symbol,
-        "report_date": str(report_date) if report_date else "Unknown",
-        "timing": timing or "Unknown",
-        "eps_data": eps_data,
-        "market_data": market_data,
-        "guidance_data": guidance_data
+        "report_date": financial_data.get("report_date") or "Unknown",
+        "timing": financial_data.get("release_timing") or "Unknown",
+        "eps_data": financial_data.get("actuals", {}).get("eps"),
+        "market_data": financial_data.get("market_reaction"),
+        "guidance_data": financial_data.get("guidance_comparison")
     })
 
 if __name__ == '__main__':
