@@ -25,7 +25,7 @@ def fetch_screener_data():
     symbols_to_fetch = ["NVDA", "MSFT", "AAPL", "AMZN", "META", "AVGO", "GOOGL", "GOOG", "BRK-B", "TSLA"]
     
     # PRODUCTION: Uncomment to deploy all 500+ stocks
-    # symbols_to_fetch = list(symbol2cik.keys())
+    symbols_to_fetch = list(symbol2cik.keys())
 
     results = []
     print(f"Fetching data for {len(symbols_to_fetch)} symbols...")

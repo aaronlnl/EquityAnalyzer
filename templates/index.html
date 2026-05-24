@@ -231,8 +231,8 @@
             const carField = c2ReactionType === 'overnight' ? 'close_to_open_car' : 'open_to_close_car';
             const reactionLabel = c2ReactionType === 'overnight' ? 'Overnight CAR (%)' : 'Intraday CAR (%)';
 
-            // Explicit filter ensuring unguided stocks are completely omitted
-            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
+            // Explicit filter ensuring unguided stocks are completely omitted and guidance surprises <= 500%
+            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null && d[metricKey] <= 500);
 
             const trace = {
                 x: filteredData.map(d => d[metricKey]),
@@ -253,8 +253,8 @@
             const horizonKey = c3Horizon === 'quarter' ? 'qtr' : 'year';
             const metricKey = `${horizonKey}_${c3Metric}_surprise`;
 
-            // Explicit filter ensuring unguided stocks are completely omitted
-            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
+            // Explicit filter ensuring unguided stocks are completely omitted and guidance surprises <= 500%
+            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null && d[metricKey] <= 500);
 
             const trace = {
                 x: filteredData.map(d => d.sue),
