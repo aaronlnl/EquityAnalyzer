@@ -144,11 +144,18 @@
 
         function renderDynamicChart3() {
             const horizonKey = c3Horizon === 'quarter' ? 'qtr' : 'year';
-            const xData = globalData.map(d => d[`${horizonKey}_${c3Metric}_surprise`]);
+            const metricKey = `${horizonKey}_${c3Metric}_surprise`;
+            
+            // Strictly exclude any stock items where guidance is missing, 0, null, or undefined
+            const filteredData = globalData.filter(d => {
+                const val = d[metricKey];
+                return val !== undefined && val !== null && val !== "";
+            });
+
             const trace = {
-                x: xData,
-                y: globalData.map(d => d.close_to_open_car),
-                text: globalData.map(d => d.symbol),
+                x: filteredData.map(d => d[metricKey]),
+                y: filteredData.map(d => d.close_to_open_car),
+                text: filteredData.map(d => d.symbol),
                 mode: 'markers+text', textposition: 'top center', type: 'scatter',
                 marker: { size: 10, color: '#6f42c1' }
             };
@@ -161,11 +168,18 @@
 
         function renderDynamicChart2() {
             const horizonKey = c2Horizon === 'quarter' ? 'qtr' : 'year';
-            const yData = globalData.map(d => d[`${horizonKey}_${c2Metric}_surprise`]);
+            const metricKey = `${horizonKey}_${c2Metric}_surprise`;
+            
+            // Strictly exclude any stock items where guidance is missing, 0, null, or undefined
+            const filteredData = globalData.filter(d => {
+                const val = d[metricKey];
+                return val !== undefined && val !== null && val !== "";
+            });
+
             const trace = {
-                x: globalData.map(d => d.sue),
-                y: yData,
-                text: globalData.map(d => d.symbol),
+                x: filteredData.map(d => d.sue),
+                y: filteredData.map(d => d[metricKey]),
+                text: filteredData.map(d => d.symbol),
                 mode: 'markers+text', textposition: 'top center', type: 'scatter',
                 marker: { size: 10, color: '#198754' }
             };
