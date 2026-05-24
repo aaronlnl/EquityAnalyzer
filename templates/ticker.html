@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <title>{{ symbol }} - Earnings Tear Sheet</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .pos-val { color: #155724 !important; background-color: #d4edda !important; font-weight: 600; }
+        .neg-val { color: #721c24 !important; background-color: #f8d7da !important; font-weight: 600; }
+    </style>
 </head>
 <body class="bg-light p-4">
     <div class="container">
@@ -16,7 +20,7 @@
             <div class="card-body">
                 <p><strong>Report Date:</strong> <span id="report_date">Loading...</span> (<span id="timing"></span>)</p>
                 
-                <h5 class="mt-4 border-bottom pb-2">1. Past Fundamentals (Income Statement Metrics)</h5>
+                <h5 class="mt-4 border-bottom pb-2">1. Earnings Metrics</h5>
                 <table class="table table-bordered text-center">
                     <thead class="table-light">
                         <tr><th>Metric</th><th>Consensus Estimate</th><th>Actual Reported</th><th>Surprise</th></tr>
@@ -26,7 +30,7 @@
                             <td>Current Qtr EPS</td>
                             <td id="eps_est">-</td>
                             <td id="eps_actual">-</td>
-                            <td id="eps_surprise" class="fw-bold">-</td>
+                            <td id="eps_surprise">-</td>
                         </tr>
                         <tr>
                             <td>Current Qtr Revenue</td>
@@ -49,7 +53,7 @@
                     </tbody>
                 </table>
 
-                <h5 class="mt-4 border-bottom pb-2">2. Forward Guidance vs Consensus</h5>
+                <h5 class="mt-4 border-bottom pb-2">2. Forward Guidance</h5>
                 <table class="table table-bordered text-center">
                     <thead class="table-light">
                         <tr><th>Metric</th><th>Consensus Estimate</th><th>Company Guidance / Implied Midpoint</th><th>Surprise %</th></tr>
@@ -85,20 +89,18 @@
                 <h5 class="mt-4 border-bottom pb-2">3. Market Reaction</h5>
                 <table class="table table-bordered text-center">
                     <thead class="table-light">
-                        <tr><th>Metric / Window</th><th>Raw Price Return (%)</th><th>Cumulative Abnormal Return (CAR vs S&P 500)</th><th>Interpretation</th></tr>
+                        <tr><th>Metric / Window</th><th>Raw Price Return (%)</th><th>Cumulative Abnormal Return (CAR vs S&P 500)</th></tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>Close-to-Open (Overnight)</td>
                             <td id="raw_overnight">-</td>
-                            <td id="car_overnight" class="fw-bold">-</td>
-                            <td>Immediate knee-jerk market reaction.</td>
+                            <td id="car_overnight">-</td>
                         </tr>
                         <tr>
                             <td>Open-to-Close (Intraday)</td>
                             <td id="raw_intraday">-</td>
-                            <td id="car_intraday" class="fw-bold">-</td>
-                            <td>Market digestion (Did they fade or fuel the gap?)</td>
+                            <td id="car_intraday">-</td>
                         </tr>
                     </tbody>
                 </table>
@@ -109,6 +111,16 @@
     <script>
         const symbol = "{{ symbol }}";
         
+        function colorElement(element, val) {
+            if (!element) return;
+            if (val === undefined || val === null || isNaN(val)) return;
+            if (val > 0) {
+                element.className = "pos-val";
+            } else if (val < 0) {
+                element.className = "neg-val";
+            }
+        }
+
         function populateGuidanceRow(prefix, dataObject) {
             const consEl = document.getElementById(`${prefix}_cons`);
             const actEl = document.getElementById(`${prefix}_act`);
@@ -119,6 +131,7 @@
                 if (actEl) actEl.innerText = typeof dataObject.guidance === 'number' ? dataObject.guidance.toLocaleString() : dataObject.guidance;
                 if (surpEl) {
                     surpEl.innerText = typeof dataObject.surprise_percent === 'number' ? dataObject.surprise_percent.toFixed(2) + '%' : "-";
+                    colorElement(surpEl, dataObject.surprise_percent);
                 }
             } else {
                 if (consEl) consEl.innerText = "-";
@@ -138,17 +151,36 @@
                 if (data.eps_data) {
                     document.getElementById('eps_est').innerText = (data.eps_data.eps_est !== undefined && data.eps_data.eps_est !== null) ? data.eps_data.eps_est : "-";
                     document.getElementById('eps_actual').innerText = (data.eps_data.eps_actual !== undefined && data.eps_data.eps_actual !== null) ? data.eps_data.eps_actual : "-";
-                    if (data.eps_data.surprise_percent !== undefined && data.eps_data.surprise_percent !== null && data.eps_data.sue !== undefined && data.eps_data.sue !== null) {
-                        document.getElementById('eps_surprise').innerText = `${Number(data.eps_data.surprise_percent).toFixed(2)}% (SUE: ${Number(data.eps_data.sue).toFixed(2)})`;
+                    
+                    const epsSurpCell = document.getElementById('eps_surprise');
+                    if (data.eps_data.surprise_percent !== undefined && data.eps_data.surprise_percent !== null) {
+                        epsSurpCell.innerText = `${Number(data.eps_data.surprise_percent).toFixed(2)}% (SUE: ${Number(data.eps_data.sue).toFixed(2)})`;
+                        colorElement(epsSurpCell, data.eps_data.surprise_percent);
                     } else {
-                        document.getElementById('eps_surprise').innerText = "-";
+                        epsSurpCell.innerText = "-";
                     }
                 }
                 
                 if (data.revenue_data) {
-                    document.getElementById('rev_actual').innerText = data.revenue_data.revenue ? '$' + data.revenue_data.revenue.toLocaleString() : "-";
-                    document.getElementById('gross_profit_actual').innerText = data.revenue_data.gross_profit ? '$' + data.revenue_data.gross_profit.toLocaleString() : "-";
-                    document.getElementById('op_income_actual').innerText = data.revenue_data.op_income ? '$' + data.revenue_data.op_income.toLocaleString() : "-";
+                    const rev = data.revenue_data.revenue;
+                    const gp = data.revenue_data.gross_profit;
+                    const op = data.revenue_data.op_income;
+
+                    document.getElementById('rev_actual').innerText = rev ? '$' + rev.toLocaleString() : "-";
+                    
+                    // Calculation & display of Gross Margin %
+                    if (gp) {
+                        let gpStr = '$' + gp.toLocaleString();
+                        if (rev) gpStr += ` (${((gp / rev) * 100).toFixed(2)}%)`;
+                        document.getElementById('gross_profit_actual').innerText = gpStr;
+                    }
+                    
+                    // Calculation & display of Operating Margin %
+                    if (op) {
+                        let opStr = '$' + op.toLocaleString();
+                        if (rev) opStr += ` (${((op / rev) * 100).toFixed(2)}%)`;
+                        document.getElementById('op_income_actual').innerText = opStr;
+                    }
                 }
 
                 // 2. Forward Guidance vs Consensus
@@ -162,14 +194,27 @@
                     populateGuidanceRow('guidance_year_rev', y.Revenue);
                 }
 
-                // 3. Market Reaction
+                // 3. Market Reaction (Color coding matches main table)
                 if (data.market_data) {
                     const formatPct = val => (val !== undefined && val !== null) ? Number(val).toFixed(2) + '%' : '-';
                     
-                    document.getElementById('raw_overnight').innerText = formatPct(data.market_data.close_to_open_change);
-                    document.getElementById('raw_intraday').innerText = formatPct(data.market_data.open_to_close_change);
-                    document.getElementById('car_overnight').innerText = formatPct(data.market_data.close_to_open_car);
-                    document.getElementById('car_intraday').innerText = formatPct(data.market_data.open_to_close_car);
+                    const rawOvernightEl = document.getElementById('raw_overnight');
+                    const rawIntradayEl = document.getElementById('raw_intraday');
+                    
+                    rawOvernightEl.innerText = formatPct(data.market_data.close_to_open_change);
+                    rawIntradayEl.innerText = formatPct(data.market_data.open_to_close_change);
+                    
+                    colorElement(rawOvernightEl, data.market_data.close_to_open_change);
+                    colorElement(rawIntradayEl, data.market_data.open_to_close_change);
+                    
+                    const carOvernightEl = document.getElementById('car_overnight');
+                    const carIntradayEl = document.getElementById('car_intraday');
+                    
+                    carOvernightEl.innerText = formatPct(data.market_data.close_to_open_car);
+                    carIntradayEl.innerText = formatPct(data.market_data.open_to_close_car);
+                    
+                    colorElement(carOvernightEl, data.market_data.close_to_open_car);
+                    colorElement(carIntradayEl, data.market_data.open_to_close_car);
                 }
             })
             .catch(err => console.error("Error populating metrics:", err));

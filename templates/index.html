@@ -1,35 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Earnings Screener Matrix</title>
+    <title>Equity Analyzer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
-        body { padding: 20px; background-color: #f8f9fa; }
-        .chart-container { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); height: 640px; display: flex; flex-direction: column; justify-content: space-between; }
-        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 30px; }
-        th { cursor: pointer; position: relative; }
-        th:after { content: ' ↕'; font-size: 0.8em; color: #ccc; }
-        #metricsTable tbody td.pos-val { color: #155724; background-color: #d4edda; font-weight: 600; }
-        #metricsTable tbody td.neg-val { color: #721c24; background-color: #f8d7da; font-weight: 600; }
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            height: 640px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+
+        th {
+            cursor: pointer;
+            position: relative;
+        }
+
+        th:after {
+            content: ' ↕';
+            font-size: 0.8em;
+            color: #ccc;
+        }
+
+        #metricsTable tbody td.pos-val {
+            color: #155724;
+            background-color: #d4edda;
+            font-weight: 600;
+        }
+
+        #metricsTable tbody td.neg-val {
+            color: #721c24;
+            background-color: #f8d7da;
+            font-weight: 600;
+        }
     </style>
 </head>
+
 <body>
     <div class="container-fluid">
-        <h2 class="mb-4">Alpha-Engine Earnings Screener Matrix</h2>
-        <div id="loading" class="alert alert-info">Extracting data schemas and evaluating tracking windows... (Check terminal output)</div>
-        
+        <h2 class="mb-4">Equity Analyzer</h2>
+        <div id="loading" class="alert alert-info">Extracting data schemas and evaluating tracking windows... (Check
+            terminal output)</div>
+
         <div class="row g-3" id="dashboard" style="display: none;">
-            
+
             <div class="col-xl-4 col-lg-6">
                 <div class="chart-container">
                     <div>
-                        <h5 class="text-center mb-0">Past Surprise vs Reaction</h5>
-                        <p class="text-muted text-center small mb-2">Past EPS Surprise (SUE) vs Overnight CAR</p>
+                        <h5 class="text-center mb-0">EPS Surprise vs Reaction</h5>
+                        <p class="text-muted text-center small mb-2">EPS Surprise (SUE) vs Overnight CAR</p>
                     </div>
                     <div id="reactionChart" style="width:100%; height:480px;"></div>
-                    <div class="text-center text-muted small py-2">Static Anchor View</div>
                 </div>
             </div>
 
@@ -43,34 +84,42 @@
                     <div class="controls-wrapper px-2">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" id="c3_qtr" onclick="setChart3Horizon('quarter')">Quarter</button>
-                                <button type="button" class="btn btn-outline-primary" id="c3_yr" onclick="setChart3Horizon('year')">Year</button>
+                                <button type="button" class="btn btn-outline-primary active" id="c3_qtr"
+                                    onclick="setChart3Horizon('quarter')">Quarter</button>
+                                <button type="button" class="btn btn-outline-primary" id="c3_yr"
+                                    onclick="setChart3Horizon('year')">Year</button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary active" id="c3_eps" onclick="setChart3Metric('eps')">EPS</button>
-                                <button type="button" class="btn btn-outline-secondary" id="c3_rev" onclick="setChart3Metric('rev')">Revenue</button>
+                                <button type="button" class="btn btn-outline-secondary active" id="c3_eps"
+                                    onclick="setChart3Metric('eps')">EPS</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c3_rev"
+                                    onclick="setChart3Metric('rev')">Revenue</button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-xl-4 col-lg-6">
                 <div class="chart-container">
                     <div>
                         <h5 class="text-center mb-0">Fundamental Narrative Mismatch</h5>
-                        <p class="text-muted text-center small mb-2">Past EPS Surprise (SUE) vs Forward Guidance Surprise</p>
+                        <p class="text-muted text-center small mb-2">EPS Surprise (SUE) vs Forward Guidance Surprise</p>
                     </div>
                     <div id="narrativeChart" style="width:100%; height:450px;"></div>
                     <div class="controls-wrapper px-2">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" id="c2_qtr" onclick="setChart2Horizon('quarter')">Quarter</button>
-                                <button type="button" class="btn btn-outline-primary" id="c2_yr" onclick="setChart2Horizon('year')">Year</button>
+                                <button type="button" class="btn btn-outline-primary active" id="c2_qtr"
+                                    onclick="setChart2Horizon('quarter')">Quarter</button>
+                                <button type="button" class="btn btn-outline-primary" id="c2_yr"
+                                    onclick="setChart2Horizon('year')">Year</button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary active" id="c2_eps" onclick="setChart2Metric('eps')">EPS</button>
-                                <button type="button" class="btn btn-outline-secondary" id="c2_rev" onclick="setChart2Metric('rev')">Revenue</button>
+                                <button type="button" class="btn btn-outline-secondary active" id="c2_eps"
+                                    onclick="setChart2Metric('eps')">EPS</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c2_rev"
+                                    onclick="setChart2Metric('rev')">Revenue</button>
                             </div>
                         </div>
                     </div>
@@ -80,7 +129,7 @@
         </div>
 
         <div class="table-container" id="tableWrapper" style="display: none;">
-            <h5 class="mb-3">Performance & Surprise Metrics Log</h5>
+            <h5 class="mb-3">Market Reaction & Surprise Metrics Log</h5>
             <div class="table-responsive">
                 <table class="table table-striped table-hover align-middle text-center" id="metricsTable">
                     <thead class="table-dark">
@@ -99,6 +148,7 @@
                     <tbody id="tableBody"></tbody>
                 </table>
             </div>
+            <div class="text-end text-muted small mt-2 fw-semibold" id="seasonDisplay" style="display: none;"></div>
         </div>
     </div>
 
@@ -111,12 +161,22 @@
         // Fetch initialization payload 
         fetch('/api/matrix')
             .then(response => response.json())
-            .then(data => {
-                globalData = data;
+            .then(payload => {
+                // Unpack the new nested dictionary payload
+                globalData = payload.matrix;
+                const currentSeason = payload.season;
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'flex';
                 document.getElementById('tableWrapper').style.display = 'block';
-                
+
+                // Inject and reveal the active financial quarter tracking text
+                const seasonEl = document.getElementById('seasonDisplay');
+                if (seasonEl) {
+                    seasonEl.innerText = `Data Analytics Horizon: ${currentSeason}`;
+                    seasonEl.style.display = 'block';
+                }
+
                 renderStaticChart1();
                 renderDynamicChart3();
                 renderDynamicChart2();
@@ -136,7 +196,8 @@
                 marker: { size: 10, color: '#0d6efd' }
             };
             Plotly.newPlot('reactionChart', [trace], {
-                xaxis: { title: 'Past EPS Surprise (SUE)' },
+                title: { text: `EPS Surprise vs Overnight Reaction (N = ${globalData.length} stocks)`, font: { size: 14 } },
+                xaxis: { title: 'EPS Surprise (SUE)' },
                 yaxis: { title: 'Overnight CAR (%)' },
                 margin: { t: 20, r: 20, b: 40, l: 50 }
             });
@@ -145,12 +206,9 @@
         function renderDynamicChart3() {
             const horizonKey = c3Horizon === 'quarter' ? 'qtr' : 'year';
             const metricKey = `${horizonKey}_${c3Metric}_surprise`;
-            
-            // Strictly exclude any stock items where guidance is missing, 0, null, or undefined
-            const filteredData = globalData.filter(d => {
-                const val = d[metricKey];
-                return val !== undefined && val !== null && val !== "";
-            });
+
+            // Explicit filter ensuring unguided stocks are completely omitted
+            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
 
             const trace = {
                 x: filteredData.map(d => d[metricKey]),
@@ -160,21 +218,19 @@
                 marker: { size: 10, color: '#6f42c1' }
             };
             Plotly.newPlot('guidanceReactionChart', [trace], {
+                title: { text: `Guidance Surprise vs Overnight Reaction (N = ${filteredData.length} stocks)`, font: { size: 14 } },
                 xaxis: { title: `Forward Guidance ${c3Metric.toUpperCase()} Surprise (%)` },
                 yaxis: { title: 'Overnight CAR (%)' },
-                margin: { t: 20, r: 20, b: 40, l: 50 }
+                margin: { t: 40, r: 20, b: 40, l: 50 }
             });
         }
 
         function renderDynamicChart2() {
             const horizonKey = c2Horizon === 'quarter' ? 'qtr' : 'year';
             const metricKey = `${horizonKey}_${c2Metric}_surprise`;
-            
-            // Strictly exclude any stock items where guidance is missing, 0, null, or undefined
-            const filteredData = globalData.filter(d => {
-                const val = d[metricKey];
-                return val !== undefined && val !== null && val !== "";
-            });
+
+            // Explicit filter ensuring unguided stocks are completely omitted
+            const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
 
             const trace = {
                 x: filteredData.map(d => d.sue),
@@ -184,9 +240,10 @@
                 marker: { size: 10, color: '#198754' }
             };
             Plotly.newPlot('narrativeChart', [trace], {
-                xaxis: { title: 'Past EPS Surprise (SUE)' },
+                title: { text: `EPS Surprise (SUE) vs Guidance Surprise (N = ${filteredData.length} stocks)`, font: { size: 14 } },
+                xaxis: { title: 'EPS Surprise (SUE)' },
                 yaxis: { title: `Forward Guidance ${c2Metric.toUpperCase()} Surprise (%)` },
-                margin: { t: 20, r: 20, b: 40, l: 50 }
+                margin: { t: 40, r: 20, b: 40, l: 50 }
             });
         }
 
@@ -220,12 +277,12 @@
 
         // Click Interceptors to dive to the Tear Sheet
         const handlePlotClick = (data) => window.location.href = '/ticker/' + data.points[0].text;
-        
+
         function attachPlotClickHandlers() {
             const reactionChart = document.getElementById('reactionChart');
             const guidanceChart = document.getElementById('guidanceReactionChart');
             const narrativeChart = document.getElementById('narrativeChart');
-            
+
             if (reactionChart) reactionChart.on('plotly_click', handlePlotClick);
             if (guidanceChart) guidanceChart.on('plotly_click', handlePlotClick);
             if (narrativeChart) narrativeChart.on('plotly_click', handlePlotClick);
@@ -264,12 +321,12 @@
             globalData.sort((a, b) => {
                 let v1, v2;
                 const fields = [
-                    'symbol', 'close_to_open_car', 'open_to_close_car', 'eps_surprise_percent', 
+                    'symbol', 'close_to_open_car', 'open_to_close_car', 'eps_surprise_percent',
                     'sue', 'qtr_eps_surprise', 'qtr_rev_surprise', 'year_eps_surprise', 'year_rev_surprise'
                 ];
                 v1 = a[fields[colIndex]];
                 v2 = b[fields[colIndex]];
-                
+
                 if (type === 'float') {
                     return sortDirection ? v1 - v2 : v2 - v1;
                 } else {
@@ -280,4 +337,5 @@
         }
     </script>
 </body>
+
 </html>

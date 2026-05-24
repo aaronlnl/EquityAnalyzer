@@ -1,0 +1,446 @@
+{
+    "NVDA_2026Q1": {
+        "symbol": "NVDA",
+        "season": "2026Q1",
+        "report_date": "2026-05-20",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 1.77191,
+                "next_quarter": 2.09073,
+                "next_year": 8.93516
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 91737983150.0,
+                "next_year": 391440837900.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 1.87,
+                "eps_est": 1.77191,
+                "surprise": 0.1,
+                "surprise_percent": 5.54,
+                "sue": 4.330127018922194
+            },
+            "revenue": {
+                "revenue": 81615000000.0,
+                "gross_profit": 61157000000.0,
+                "op_income": 53536000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": -0.5280386307444079,
+            "open_to_close_change": -1.2506180499625308,
+            "close_to_open_car": -0.22949808711105144,
+            "open_to_close_car": -1.7220991990513956
+        },
+        "guidance_comparison": {
+            "quarter": {
+                "Revenue": {
+                    "guidance": 91000000000.0,
+                    "consensus": 91737983150.0,
+                    "surprise": -737983150.0,
+                    "surprise_percent": -0.8044466693728485
+                }
+            },
+            "year": {}
+        }
+    },
+    "MSFT_2026Q1": {
+        "symbol": "MSFT",
+        "season": "2026Q1",
+        "report_date": "2026-04-29",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 4.05827,
+                "next_quarter": 4.23636,
+                "next_year": 16.81245
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 87656186510.0,
+                "next_year": 329500574720.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 4.27,
+                "eps_est": 4.05827,
+                "surprise": 0.21,
+                "surprise_percent": 5.2199997,
+                "sue": 1.5874507866387544
+            },
+            "revenue": {
+                "revenue": 82886000000.0,
+                "gross_profit": 56058000000.0,
+                "op_income": 38398000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": -3.215844034019879,
+            "open_to_close_change": -0.7375669524363871,
+            "close_to_open_car": -3.5773909055836337,
+            "open_to_close_car": -1.397458258681369
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    },
+    "AAPL_2026Q1": {
+        "symbol": "AAPL",
+        "season": "2026Q1",
+        "report_date": "2026-04-30",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 1.94275,
+                "next_quarter": 1.89541,
+                "next_year": 8.75324
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 109015606590.0,
+                "next_year": 478083853080.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 2.01,
+                "eps_est": 1.94275,
+                "surprise": 0.07,
+                "surprise_percent": 3.46,
+                "sue": 1.5275252316519465
+            },
+            "revenue": {
+                "revenue": 111184000000.0,
+                "gross_profit": 54781000000.0,
+                "op_income": 35885000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": 2.7676255753106687,
+            "open_to_close_change": 0.4590222205101373,
+            "close_to_open_car": 2.4134816045362495,
+            "open_to_close_car": 0.5201169390566499
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    },
+    "AMZN_2026Q1": {
+        "symbol": "AMZN",
+        "season": "2026Q1",
+        "report_date": "2026-04-29",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 1.65303,
+                "next_quarter": 1.81592,
+                "next_year": 8.64623
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 195768736900.0,
+                "next_year": 823045803730.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 2.78,
+                "eps_est": 1.65303,
+                "surprise": 1.13,
+                "surprise_percent": 68.17999999999999,
+                "sue": 5.1293033393681
+            },
+            "revenue": {
+                "revenue": 181519000000.0,
+                "gross_profit": 94056000000.0,
+                "op_income": 23852000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": 3.8511270353317757,
+            "open_to_close_change": -2.968852901303563,
+            "close_to_open_car": 3.489580163768021,
+            "open_to_close_car": -3.6287442075485448
+        },
+        "guidance_comparison": {
+            "quarter": {
+                "Revenue": {
+                    "guidance": 196500000000.0,
+                    "consensus": 195768736900.0,
+                    "surprise": 731263100.0,
+                    "surprise_percent": 0.3735341564641826
+                }
+            },
+            "year": {}
+        }
+    },
+    "META_2026Q1": {
+        "symbol": "META",
+        "season": "2026Q1",
+        "report_date": "2026-04-29",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 6.65872,
+                "next_quarter": 7.20067,
+                "next_year": 32.86462
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 60209152310.0,
+                "next_year": 253075164820.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 10.44,
+                "eps_est": 6.65872,
+                "surprise": 3.78,
+                "surprise_percent": 56.79,
+                "sue": 0.9876445182882726
+            },
+            "revenue": {
+                "revenue": 56311000000.0,
+                "gross_profit": 46093000000.0,
+                "op_income": 22872000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": -7.442609420788111,
+            "open_to_close_change": -1.196479056393263,
+            "close_to_open_car": -7.804156292351866,
+            "open_to_close_car": -1.856370362638245
+        },
+        "guidance_comparison": {
+            "quarter": {
+                "Revenue": {
+                    "guidance": 59500000000.0,
+                    "consensus": 60209152310.0,
+                    "surprise": -709152310.0,
+                    "surprise_percent": -1.177814805212294
+                }
+            },
+            "year": {}
+        }
+    },
+    "AVGO_2026Q1": {
+        "symbol": "AVGO",
+        "season": "2026Q1",
+        "report_date": "2026-03-04",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 2.39057,
+                "next_quarter": 3.20746,
+                "next_year": 11.35861
+            },
+            "revenue": {
+                "curr_quarter": 22084051860.0,
+                "next_quarter": 28691829060.0,
+                "next_year": 103274512110.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": null,
+                "eps_est": null,
+                "surprise": null,
+                "surprise_percent": null,
+                "sue": null
+            },
+            "revenue": {}
+        },
+        "market_reaction": {
+            "close_to_open_change": 3.9838773455518193,
+            "open_to_close_change": 0.7844195273315233,
+            "close_to_open_car": 4.252017994434562,
+            "open_to_close_car": 1.081746619632492
+        },
+        "guidance_comparison": {
+            "quarter": {
+                "Revenue": {
+                    "guidance": 22000000000.0,
+                    "consensus": 28691829060.0,
+                    "surprise": -6691829060.0,
+                    "surprise_percent": -23.32311769321548
+                }
+            },
+            "year": {}
+        }
+    },
+    "GOOGL_2026Q1": {
+        "symbol": "GOOGL",
+        "season": "2026Q1",
+        "report_date": "2026-04-29",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 2.66714,
+                "next_quarter": 2.87524,
+                "next_year": 14.23631
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 116689311600.0,
+                "next_year": 486498917400.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 5.11,
+                "eps_est": 2.66714,
+                "surprise": 2.44,
+                "surprise_percent": 91.59,
+                "sue": 9.129339717476187
+            },
+            "revenue": {
+                "revenue": 109896000000.0,
+                "gross_profit": 68625000000.0,
+                "op_income": 39696000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": 6.895469141700315,
+            "open_to_close_change": 2.868441804651281,
+            "close_to_open_car": 6.533922270136561,
+            "open_to_close_car": 2.208550498406299
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    },
+    "GOOG_2026Q1": {
+        "symbol": "GOOG",
+        "season": "2026Q1",
+        "report_date": "2026-04-29",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 2.62989,
+                "next_quarter": 2.88339,
+                "next_year": 14.23667
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 116689311600.0,
+                "next_year": 486498917400.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 5.11,
+                "eps_est": 2.62989,
+                "surprise": 2.48,
+                "surprise_percent": 94.3,
+                "sue": 9.16008900389866
+            },
+            "revenue": {
+                "revenue": 109896000000.0,
+                "gross_profit": 68625000000.0,
+                "op_income": 39696000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": 6.894419248665323,
+            "open_to_close_change": 2.8780750206900225,
+            "close_to_open_car": 6.532872377101569,
+            "open_to_close_car": 2.2181837144450407
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    },
+    "BRK-B_2026Q1": {
+        "symbol": "BRK-B",
+        "season": "2026Q1",
+        "report_date": "2026-05-07",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 5.04888,
+                "next_quarter": 5.00662,
+                "next_year": 20.38567
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 98783000000.0,
+                "next_year": 387407850000.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 5.2596,
+                "eps_est": 5.04888,
+                "surprise": 0.21,
+                "surprise_percent": 4.17,
+                "sue": 0.43436914540289073
+            },
+            "revenue": {
+                "revenue": 92070000000.0,
+                "gross_profit": 0.0,
+                "op_income": 0.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": -0.048408789098720977,
+            "open_to_close_change": 0.22954539831110576,
+            "close_to_open_car": -0.4008684366217706,
+            "open_to_close_car": -0.2588439321931072
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    },
+    "TSLA_2026Q1": {
+        "symbol": "TSLA",
+        "season": "2026Q1",
+        "report_date": "2026-04-22",
+        "release_timing": "After Close",
+        "estimates": {
+            "eps": {
+                "curr_quarter": 0.34999,
+                "next_quarter": 0.45396,
+                "next_year": 2.04835
+            },
+            "revenue": {
+                "curr_quarter": null,
+                "next_quarter": 24603984300.0,
+                "next_year": 102284826590.0
+            }
+        },
+        "actuals": {
+            "eps": {
+                "eps_actual": 0.41,
+                "eps_est": 0.34999,
+                "surprise": 0.06,
+                "surprise_percent": 17.150000000000002,
+                "sue": 1.0894095588038442
+            },
+            "revenue": {
+                "revenue": 22387000000.0,
+                "gross_profit": 4720000000.0,
+                "op_income": 941000000.0
+            }
+        },
+        "market_reaction": {
+            "close_to_open_change": -3.1560503414415324,
+            "open_to_close_change": -0.415688969214474,
+            "close_to_open_car": -2.8884632651646793,
+            "open_to_close_car": -0.26959829903012644
+        },
+        "guidance_comparison": {
+            "quarter": {},
+            "year": {}
+        }
+    }
+}

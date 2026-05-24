@@ -8,3 +8,4 @@ pandas
 markdownify
 pydantic
 lxml
+Flask
