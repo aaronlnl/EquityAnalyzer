@@ -7,6 +7,10 @@ Equity Analyzer is an intuitive web-based dashboard designed to track, visualize
 * **Real-Time Tracking:** Automatically logs and displays data aligned to the active financial quarter (earnings season).
 
 ## How to Run the Application
+**Important Note: An .env file (not included in the repo) with GEMINI_API_KEY and EMAIL is needed to start the app. In addition, VPN may be needed to use Gemini API in Hong Kong**
+
+
+
 ### Step 1: Download the Project
 1. Download this project repository as a `.zip` file to your computer.
 2. Extract (unzip) the files into a folder of your choice.
@@ -48,3 +52,4 @@ Once the app is running, your terminal will display a local web address. Open yo
 **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
 
 *To stop the application at any time, go back to your terminal window and press `Ctrl + C`.*
+---

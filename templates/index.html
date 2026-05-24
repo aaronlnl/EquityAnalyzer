@@ -71,6 +71,16 @@
                         <p class="text-muted text-center small mb-2">EPS Surprise (SUE) vs Overnight CAR</p>
                     </div>
                     <div id="reactionChart" style="width:100%; height:480px;"></div>
+                    <div class="controls-wrapper px-2">
+                        <div class="d-flex justify-content-center mb-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" id="c1_overnight"
+                                    onclick="setChart1ReactionType('overnight')">Overnight</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c1_intraday"
+                                    onclick="setChart1ReactionType('intraday')">Intraday</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -84,16 +94,22 @@
                     <div class="controls-wrapper px-2">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" id="c3_qtr"
-                                    onclick="setChart3Horizon('quarter')">Quarter</button>
-                                <button type="button" class="btn btn-outline-primary" id="c3_yr"
-                                    onclick="setChart3Horizon('year')">Year</button>
+                                <button type="button" class="btn btn-outline-primary active" id="c2_qtr"
+                                    onclick="setChart2Horizon('quarter')">Quarter</button>
+                                <button type="button" class="btn btn-outline-primary" id="c2_yr"
+                                    onclick="setChart2Horizon('year')">Year</button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary active" id="c3_eps"
-                                    onclick="setChart3Metric('eps')">EPS</button>
-                                <button type="button" class="btn btn-outline-secondary" id="c3_rev"
-                                    onclick="setChart3Metric('rev')">Revenue</button>
+                                <button type="button" class="btn btn-outline-secondary active" id="c2_overnight"
+                                    onclick="setChart2ReactionType('overnight')">Overnight</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c2_intraday"
+                                    onclick="setChart2ReactionType('intraday')">Intraday</button>
+                            </div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" id="c2_eps"
+                                    onclick="setChart2Metric('eps')">EPS</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c2_rev"
+                                    onclick="setChart2Metric('rev')">Revenue</button>
                             </div>
                         </div>
                     </div>
@@ -110,16 +126,16 @@
                     <div class="controls-wrapper px-2">
                         <div class="d-flex justify-content-between mb-2">
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" id="c2_qtr"
-                                    onclick="setChart2Horizon('quarter')">Quarter</button>
-                                <button type="button" class="btn btn-outline-primary" id="c2_yr"
-                                    onclick="setChart2Horizon('year')">Year</button>
+                                <button type="button" class="btn btn-outline-primary active" id="c3_qtr"
+                                    onclick="setChart3Horizon('quarter')">Quarter</button>
+                                <button type="button" class="btn btn-outline-primary" id="c3_yr"
+                                    onclick="setChart3Horizon('year')">Year</button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-secondary active" id="c2_eps"
-                                    onclick="setChart2Metric('eps')">EPS</button>
-                                <button type="button" class="btn btn-outline-secondary" id="c2_rev"
-                                    onclick="setChart2Metric('rev')">Revenue</button>
+                                <button type="button" class="btn btn-outline-secondary active" id="c3_eps"
+                                    onclick="setChart3Metric('eps')">EPS</button>
+                                <button type="button" class="btn btn-outline-secondary" id="c3_rev"
+                                    onclick="setChart3Metric('rev')">Revenue</button>
                             </div>
                         </div>
                     </div>
@@ -155,8 +171,9 @@
     <script>
         // Global State Engines
         let globalData = [];
-        let c2Horizon = 'quarter', c2Metric = 'eps';
-        let c3Horizon = 'quarter', c3Metric = 'eps';
+        let c1ReactionType = 'overnight';  // Chart 1: overnight or intraday
+        let c2Horizon = 'quarter', c2Metric = 'eps', c2ReactionType = 'overnight';  // Chart 2: quarter/year, eps/rev, overnight/intraday
+        let c3Horizon = 'quarter', c3Metric = 'eps';  // Chart 3: quarter/year, eps/rev
 
         // Fetch initialization payload 
         fetch('/api/matrix')
@@ -177,57 +194,64 @@
                     seasonEl.style.display = 'block';
                 }
 
-                renderStaticChart1();
-                renderDynamicChart3();
-                renderDynamicChart2();
+                renderChart1();
+                renderChart2();
+                renderChart3();
                 buildTable();
                 attachPlotClickHandlers();
+                updateButtonStates();
             });
 
         // --------------------------------------------------------------------
         // Chart Render Routines
         // --------------------------------------------------------------------
-        function renderStaticChart1() {
+        function renderChart1() {
+            const carField = c1ReactionType === 'overnight' ? 'close_to_open_car' : 'open_to_close_car';
+            const reactionLabel = c1ReactionType === 'overnight' ? 'Overnight CAR (%)' : 'Intraday CAR (%)';
+            
             const trace = {
                 x: globalData.map(d => d.sue),
-                y: globalData.map(d => d.close_to_open_car),
+                y: globalData.map(d => d[carField]),
                 text: globalData.map(d => d.symbol),
                 mode: 'markers+text', textposition: 'top center', type: 'scatter',
                 marker: { size: 10, color: '#0d6efd' }
             };
             Plotly.newPlot('reactionChart', [trace], {
-                title: { text: `EPS Surprise vs Overnight Reaction (N = ${globalData.length} stocks)`, font: { size: 14 } },
+                title: { text: `EPS Surprise vs ${reactionLabel.split(' ')[0]} Reaction (N = ${globalData.length} stocks)`, font: { size: 14 } },
                 xaxis: { title: 'EPS Surprise (SUE)' },
-                yaxis: { title: 'Overnight CAR (%)' },
+                yaxis: { title: reactionLabel },
                 margin: { t: 20, r: 20, b: 40, l: 50 }
             });
         }
 
-        function renderDynamicChart3() {
-            const horizonKey = c3Horizon === 'quarter' ? 'qtr' : 'year';
-            const metricKey = `${horizonKey}_${c3Metric}_surprise`;
+        function renderChart2() {
+            const horizonKey = c2Horizon === 'quarter' ? 'qtr' : 'year';
+            const metricKey = `${horizonKey}_${c2Metric}_surprise`;
+
+            const carField = c2ReactionType === 'overnight' ? 'close_to_open_car' : 'open_to_close_car';
+            const reactionLabel = c2ReactionType === 'overnight' ? 'Overnight CAR (%)' : 'Intraday CAR (%)';
 
             // Explicit filter ensuring unguided stocks are completely omitted
             const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
 
             const trace = {
                 x: filteredData.map(d => d[metricKey]),
-                y: filteredData.map(d => d.close_to_open_car),
+                y: filteredData.map(d => d[carField]),
                 text: filteredData.map(d => d.symbol),
                 mode: 'markers+text', textposition: 'top center', type: 'scatter',
                 marker: { size: 10, color: '#6f42c1' }
             };
             Plotly.newPlot('guidanceReactionChart', [trace], {
-                title: { text: `Guidance Surprise vs Overnight Reaction (N = ${filteredData.length} stocks)`, font: { size: 14 } },
-                xaxis: { title: `Forward Guidance ${c3Metric.toUpperCase()} Surprise (%)` },
-                yaxis: { title: 'Overnight CAR (%)' },
+                title: { text: `Guidance Surprise vs ${c2ReactionType === 'overnight' ? 'Overnight' : 'Intraday'} Reaction (N = ${filteredData.length} stocks)`, font: { size: 14 } },
+                xaxis: { title: `Forward Guidance ${c2Metric.toUpperCase()} Surprise (%)` },
+                yaxis: { title: reactionLabel },
                 margin: { t: 40, r: 20, b: 40, l: 50 }
             });
         }
 
-        function renderDynamicChart2() {
-            const horizonKey = c2Horizon === 'quarter' ? 'qtr' : 'year';
-            const metricKey = `${horizonKey}_${c2Metric}_surprise`;
+        function renderChart3() {
+            const horizonKey = c3Horizon === 'quarter' ? 'qtr' : 'year';
+            const metricKey = `${horizonKey}_${c3Metric}_surprise`;
 
             // Explicit filter ensuring unguided stocks are completely omitted
             const filteredData = globalData.filter(d => d[metricKey] !== undefined && d[metricKey] !== null);
@@ -242,7 +266,7 @@
             Plotly.newPlot('narrativeChart', [trace], {
                 title: { text: `EPS Surprise (SUE) vs Guidance Surprise (N = ${filteredData.length} stocks)`, font: { size: 14 } },
                 xaxis: { title: 'EPS Surprise (SUE)' },
-                yaxis: { title: `Forward Guidance ${c2Metric.toUpperCase()} Surprise (%)` },
+                yaxis: { title: `Forward Guidance ${c3Metric.toUpperCase()} Surprise (%)` },
                 margin: { t: 40, r: 20, b: 40, l: 50 }
             });
         }
@@ -250,29 +274,47 @@
         // --------------------------------------------------------------------
         // State Mutation Actions
         // --------------------------------------------------------------------
-        function setChart3Horizon(val) {
-            c3Horizon = val;
-            toggleButtonActiveState('c3_qtr', 'c3_yr', val === 'quarter');
-            renderDynamicChart3();
-        }
-        function setChart3Metric(val) {
-            c3Metric = val;
-            toggleButtonActiveState('c3_eps', 'c3_rev', val === 'eps');
-            renderDynamicChart3();
+        function setChart1ReactionType(val) {
+            c1ReactionType = val;
+            toggleButtonActiveState('c1_overnight', 'c1_intraday', val === 'overnight');
+            renderChart1();
         }
         function setChart2Horizon(val) {
             c2Horizon = val;
             toggleButtonActiveState('c2_qtr', 'c2_yr', val === 'quarter');
-            renderDynamicChart2();
+            renderChart2();
         }
         function setChart2Metric(val) {
             c2Metric = val;
             toggleButtonActiveState('c2_eps', 'c2_rev', val === 'eps');
-            renderDynamicChart2();
+            renderChart2();
+        }
+        function setChart2ReactionType(val) {
+            c2ReactionType = val;
+            toggleButtonActiveState('c2_overnight', 'c2_intraday', val === 'overnight');
+            renderChart2();
+        }
+        function setChart3Horizon(val) {
+            c3Horizon = val;
+            toggleButtonActiveState('c3_qtr', 'c3_yr', val === 'quarter');
+            renderChart3();
+        }
+        function setChart3Metric(val) {
+            c3Metric = val;
+            toggleButtonActiveState('c3_eps', 'c3_rev', val === 'eps');
+            renderChart3();
         }
         function toggleButtonActiveState(id1, id2, primaryActive) {
             document.getElementById(id1).classList.toggle('active', primaryActive);
             document.getElementById(id2).classList.toggle('active', !primaryActive);
+        }
+        function updateButtonStates() {
+            toggleButtonActiveState('c1_overnight', 'c1_intraday', c1ReactionType === 'overnight');
+            toggleButtonActiveState('c2_qtr', 'c2_yr', c2Horizon === 'quarter');
+            toggleButtonActiveState('c2_eps', 'c2_rev', c2Metric === 'eps');
+            toggleButtonActiveState('c2_overnight', 'c2_intraday', c2ReactionType === 'overnight');
+            toggleButtonActiveState('c3_qtr', 'c3_yr', c3Horizon === 'quarter');
+            toggleButtonActiveState('c3_eps', 'c3_rev', c3Metric === 'eps');
         }
 
         // Click Interceptors to dive to the Tear Sheet
