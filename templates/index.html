@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Earnings Screener Matrix</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; }
+        .chart-container { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <h2 class="mb-4">Equity Analyzer</h2>
+        <div id="loading" class="alert alert-info">Fetching SEC and pricing data... (Check terminal for progress)</div>
+        
+        <div class="row" id="dashboard" style="display: none;">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="text-center">Market Reaction (Proportionality Plot)</h5>
+                    <p class="text-muted text-center small">Find mispriced stocks (Outliers from the trend)</p>
+                    <div id="reactionChart" style="width:100%; height:500px;"></div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="text-center">Fundamental Mismatch (Narrative Plot)</h5>
+                    <p class="text-muted text-center small">Past EPS Surprise vs Future Guidance Surprise</p>
+                    <div id="narrativeChart" style="width:100%; height:500px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('/api/matrix')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'flex';
+
+                const symbols = data.map(d => d.symbol);
+                const epsSurprise = data.map(d => d.sue);
+                const car = data.map(d => d.car);
+                const guidance = data.map(d => d.guidance_surprise);
+
+                // --- Chart 1: Reaction Plot (SUE vs CAR) ---
+                const trace1 = {
+                    x: epsSurprise, y: car, text: symbols, mode: 'markers+text',
+                    textposition: 'top center', type: 'scatter',
+                    marker: { size: 10, color: 'blue' }
+                };
+                const layout1 = {
+                    xaxis: { title: 'EPS Surprise (SUE)' },
+                    yaxis: { title: 'Overnight CAR (%)' },
+                    hovermode: 'closest'
+                };
+                Plotly.newPlot('reactionChart', [trace1], layout1);
+
+                // --- Chart 2: Narrative Plot (SUE vs Guidance) ---
+                const trace2 = {
+                    x: epsSurprise, y: guidance, text: symbols, mode: 'markers+text',
+                    textposition: 'top center', type: 'scatter',
+                    marker: { size: 10, color: 'green' }
+                };
+                const layout2 = {
+                    xaxis: { title: 'EPS Surprise (SUE)' },
+                    yaxis: { title: 'Forward Guidance Surprise (%)' },
+                    hovermode: 'closest'
+                };
+                Plotly.newPlot('narrativeChart', [trace2], layout2);
+
+                // Add Click Events to navigate to Tear Sheet
+                document.getElementById('reactionChart').on('plotly_click', function(data){
+                    window.location.href = '/ticker/' + data.points[0].text;
+                });
+                document.getElementById('narrativeChart').on('plotly_click', function(data){
+                    window.location.href = '/ticker/' + data.points[0].text;
+                });
+            });
+    </script>
+</body>
+</html>

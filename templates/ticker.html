@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ symbol }} - Earnings Tear Sheet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light p-4">
+    <div class="container">
+        <a href="/" class="btn btn-outline-secondary mb-3">&larr; Back to Analyzer</a>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">{{ symbol }} Profile</h3>
+            </div>
+            <div class="card-body">
+                <p><strong>Report Date:</strong> <span id="report_date">Loading...</span> (<span id="timing"></span>)</p>
+                
+                <h5 class="mt-4 border-bottom pb-2">1. Past Fundamentals (EPS)</h5>
+                <table class="table table-bordered text-center">
+                    <thead class="table-light">
+                        <tr><th>Metric</th><th>Consensus Estimate</th><th>Actual Reported</th><th>Surprise</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Current Qtr EPS</td>
+                            <td id="eps_est">-</td>
+                            <td id="eps_actual">-</td>
+                            <td id="eps_surprise" class="fw-bold">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="mt-4 border-bottom pb-2">2. Forward Guidance vs Consensus</h5>
+                <table class="table table-bordered text-center">
+                    <thead class="table-light">
+                        <tr><th>Metric</th><th>Consensus Estimate</th><th>Company Guidance</th><th>Surprise %</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Next Qtr EPS</td>
+                            <td id="guidance_eps_cons">-</td>
+                            <td id="guidance_eps_act">-</td>
+                            <td id="guidance_eps_surp">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h5 class="mt-4 border-bottom pb-2">3. Market Reaction</h5>
+                <table class="table table-bordered text-center">
+                    <thead class="table-light">
+                        <tr><th>Metric</th><th>Value</th><th>Interpretation</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Close-to-Open CAR (Overnight)</td>
+                            <td id="car_overnight" class="fw-bold">-</td>
+                            <td>Immediate knee-jerk reaction.</td>
+                        </tr>
+                        <tr>
+                            <td>Open-to-Close CAR (Intraday)</td>
+                            <td id="car_intraday" class="fw-bold">-</td>
+                            <td>Market digestion (Did they fade the gap?)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const symbol = "{{ symbol }}";
+        fetch(`/api/ticker/${symbol}`)
+            .then(response => response.json())
+            .then(data => {
+                // Header
+                document.getElementById('report_date').innerText = data.report_date;
+                document.getElementById('timing').innerText = data.timing;
+
+                // EPS
+                if(data.eps_data) {
+                    document.getElementById('eps_est').innerText = data.eps_data.eps_est;
+                    document.getElementById('eps_actual').innerText = data.eps_data.eps_actual;
+                    document.getElementById('eps_surprise').innerText = 
+                        `${data.eps_data.surprise_percent.toFixed(2)}% (SUE: ${data.eps_data.sue.toFixed(2)})`;
+                }
+
+                // Guidance
+                if(data.guidance_data && data.guidance_data.quarter && data.guidance_data.quarter.EPS) {
+                    const g = data.guidance_data.quarter.EPS;
+                    document.getElementById('guidance_eps_cons').innerText = g.consensus.toFixed(2);
+                    document.getElementById('guidance_eps_act').innerText = g.guidance.toFixed(2);
+                    document.getElementById('guidance_eps_surp').innerText = g.surprise_percent.toFixed(2) + '%';
+                } else {
+                    document.getElementById('guidance_eps_act').innerText = "No Guidance Provided";
+                }
+
+                // Reaction
+                if(data.market_data) {
+                    document.getElementById('car_overnight').innerText = data.market_data.close_to_open_car.toFixed(2) + '%';
+                    document.getElementById('car_intraday').innerText = data.market_data.open_to_close_car.toFixed(2) + '%';
+                }
+            });
+    </script>
+</body>
+</html>
