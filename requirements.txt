@@ -1,0 +1,10 @@
+requests
+google
+google.genai
+beautifulsoup4
+yfinance
+python-dotenv
+pandas
+markdownify
+pydantic
+lxml
